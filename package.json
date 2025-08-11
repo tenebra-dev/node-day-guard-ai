@@ -1,0 +1,17 @@
+{
+  "name": "node-day-guard-ai",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.6.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "pnpm --filter @node-day-guard-ai/api start:dev",
+    "build:api": "pnpm --filter @node-day-guard-ai/api build",
+    "start:api": "pnpm --filter @node-day-guard-ai/api start:prod",
+    "lint": "pnpm -r lint",
+    "format": "pnpm -r format"
+  }
+}
