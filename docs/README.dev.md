@@ -1,16 +1,18 @@
 # Guia de Desenvolvimento
 
-Este guia descreve como configurar, desenvolver, testar e operar o projeto localmente.
+Este guia descreve como configurar, desenvolver, testar e operar o projeto Day Guard AI localmente.
 
 ## Sumário
 - Requisitos
 - Setup inicial
+- Estrutura do projeto
 - Convenções de código
 - Execução local
 - Banco de dados e migrations
 - Testes (unit e e2e)
 - Observabilidade
-- Boas práticas de segurança
+- Swagger/OpenAPI
+- Segurança
 - Fluxo de contribuição
 - Próximos passos
 
@@ -23,76 +25,119 @@ Opcional:
 - PostgreSQL 16/17 e Redis 7.x instalados localmente (se preferir não usar Docker)
 
 ## Setup inicial
-1. Instale dependências na raiz do workspace (usa pnpm-workspace.yaml)
-   - pnpm install
-2. Copie variáveis de ambiente
-   - cp apps/api/.env.example apps/api/.env
+1. Clone o repositório
+   - `git clone https://github.com/seu-usuario/node-day-guard-ai.git`
+   - `cd node-day-guard-ai`
+2. Instale dependências na raiz do workspace (usa pnpm-workspace.yaml)
+   - `pnpm install`
+3. Copie variáveis de ambiente
+   - `cp apps/api/.env.example apps/api/.env`
    - Se rodar API fora do Docker, mantenha DATABASE_URL com localhost
    - Se rodar API dentro do Docker, troque para host db (comentado no arquivo)
-3. Suba os serviços auxiliares
-   - docker compose up -d
-4. Rode a API em dev
-   - pnpm dev:api
+4. Suba os serviços auxiliares
+   - `docker compose up -d`
+5. Rode a API em dev
+   - `pnpm dev:api` ou `cd apps/api && pnpm start:dev`
 
-## Variáveis de ambiente (proposta)
+## Estrutura do projeto
+
+O projeto segue uma arquitetura modular baseada em NestJS:
+
+```
+apps/api/src/
+├── app.module.ts          # Módulo raiz da aplicação
+├── main.ts                # Ponto de entrada da aplicação
+├── app.controller.ts      # Controller principal
+├── app.service.ts         # Serviço principal
+├── common/                # Componentes compartilhados
+│   ├── dto/               # DTOs compartilhados
+│   ├── filters/           # Filtros de exceção globais
+│   └── middleware/        # Middlewares globais
+├── config/                # Configuração da aplicação
+│   └── configuration.ts   # Configurações centralizadas
+├── database/              # Configuração do banco de dados
+│   ├── data-source.ts     # DataSource para TypeORM CLI
+│   ├── database.module.ts # Módulo de database
+│   └── migrations/        # Migrations TypeORM
+├── health/                # Healthchecks
+│   ├── health.controller.ts
+│   └── health.module.ts
+└── users/                 # Módulo de usuários
+    ├── dto/               # DTOs específicos de usuários
+    ├── entities/          # Entidades TypeORM
+    ├── users.controller.ts
+    ├── users.module.ts
+    └── users.service.ts
+```
+
+## Variáveis de ambiente
 Crie um arquivo .env com as chaves abaixo (ajuste conforme necessário):
 
-- NODE_ENV=development
-- PORT=3000
-- DATABASE_URL=postgres://postgres:postgres@db:5432/dayguard
-- REDIS_URL=redis://localhost:6379
-- JWT_SECRET=change_me
-- OPENAI_API_KEY=(opcional)
+```
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/dayguard
+LOG_LEVEL=info
+CORS_ENABLED=true
+CORS_ORIGIN=*
+```
 
-Sugestão: validar config com joi/zod no módulo de configuração.
+O módulo de configuração utiliza Joi para validação das variáveis de ambiente.
 
 ## Convenções de código
 - TypeScript estrito (noImplicitAny, strictNullChecks)
 - Padrão NestJS por módulos/domínios
 - DTOs com class-validator/class-transformer
-- ESLint + Prettier obrigatórios (CI falha se não cumprir)
-- Commits semânticos (conventional commits): feat, fix, chore, docs, refactor, test, perf, ci, build, style
+- ESLint + Prettier obrigatórios
+- Commits semânticos: feat, fix, chore, docs, refactor, test, etc.
 
 ## Execução local
-- Desenvolvimento: pnpm dev:api
-- Produção local (build): pnpm build && pnpm start:prod
-- Lint/format: pnpm lint && pnpm format
+- Desenvolvimento: `pnpm dev:api` ou `cd apps/api && pnpm start:dev`
+- Build e execução: `cd apps/api && pnpm build && pnpm start:prod`
+- Lint/format: `cd apps/api && pnpm lint && pnpm format`
 
 ## Banco de dados e migrations
-- Configuração TypeORM via data-source.ts ou config do Nest (@nestjs/typeorm)
-- Migrations versionadas em src/database/migrations
-- Seeds opcionais em src/database/seeds
-- Data source: apps/api/src/database/data-source.ts
-- Scripts úteis:
-  - pnpm migration:generate --name=create_tasks
-  - pnpm migration:run
-  - pnpm migration:revert
+- Configuração TypeORM via data-source.ts para CLI
+- TypeOrmConfigService para integração com NestJS
+- Migration scripts disponíveis no package.json:
+  - `cd apps/api && pnpm migration:generate --name=nome_da_migration`
+  - `cd apps/api && pnpm migration:run`
+  - `cd apps/api && pnpm migration:revert`
 
 ## Testes
 - Unit: Jest + ts-jest
 - e2e: supertest com app inicializada (TestingModule)
-- Cobertura: pnpm test:cov (alvo mínimo recomendado: 80%)
+- Scripts no package.json:
+  - `cd apps/api && pnpm test`
+  - `cd apps/api && pnpm test:watch`
+  - `cd apps/api && pnpm test:cov`
+  - `cd apps/api && pnpm test:e2e`
 
 ## Observabilidade
-- Healthcheck: GET /health (Terminus) — depende da conexão com Postgres
-- Logs: pino + nestjs-pino (JSON), correlação de requestId
-- Métricas/Tracing: OpenTelemetry com export OTLP (Prometheus/Tempo)
+- Healthcheck: GET /health (usando @nestjs/terminus)
+- Logs: nestjs-pino (logs estruturados em JSON)
+- RequestId middleware para correlação de logs
+
+## Swagger/OpenAPI
+- Documentação API disponível em: http://localhost:3000/docs
+- Decorators do Swagger implementados nos DTOs e controllers
+- Tags organizadas por domínio (health, users, etc.)
 
 ## Segurança
-- Headers seguros (helmet)
-- Rate limiting (@nestjs/throttler)
-- CORS configurado
-- Senhas com bcrypt, JWT com expiração e refresh token (fase pós-MVP)
-- Validação de input estrita, whitelist e forbidNonWhitelisted
+- Headers seguros
+- CORS configurável
+- Validação de input estrita com class-validator
+- Autorização com JWT (em desenvolvimento)
 
 ## Fluxo de contribuição
-1. Crie uma branch a partir de main
-2. Faça commits pequenos e objetivos
-3. Atualize testes e docs
-4. Abra PR com descrição, checklist e screenshots/logs quando aplicável
-5. Aguarde revisão e squash merge
+1. Crie uma branch a partir de main: `git checkout -b feature/nome-da-feature`
+2. Implemente as mudanças com commits semânticos
+3. Atualize testes e documentação
+4. Abra um PR com descrição detalhada
+5. Após revisão e aprovação, faça merge para a branch main
 
 ## Próximos passos
-- Implementar Entities e Migrations iniciais
-- Adicionar Swagger e versionamento
-- Configurar CI básico
+- Implementar autenticação JWT completa
+- Adicionar módulos para tarefas e lembretes
+- Implementar serviço de resumo diário
+- Configurar CI/CD

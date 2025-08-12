@@ -1,16 +1,28 @@
-import 'reflect-metadata';
-import { DataSource } from 'typeorm';
+/**
+ * DataSource para uso com migrações e CLI do TypeORM
+ * Documentação: https://typeorm.io/data-source
+ */
+import { DataSource, DataSourceOptions } from 'typeorm';
+import { join } from 'path';
 import * as dotenv from 'dotenv';
 
-dotenv.config();
+// Carregar variáveis de ambiente
+dotenv.config({ path: join(__dirname, '../../../.env') });
 
-export const AppDataSource = new DataSource({
+// Configurações do DataSource
+export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
   url: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/dayguard',
-  synchronize: false,
-  logging: false,
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  migrations: [__dirname + '/migrations/*{.ts,.js}'],
-});
+  entities: [join(__dirname, '..', '**', '*.entity{.ts,.js}')],
+  migrations: [join(__dirname, 'migrations', '*{.ts,.js}')],
+  synchronize: false, // Sempre mantenha como false em produção
+  logging: process.env.NODE_ENV === 'development',
+  ssl: process.env.NODE_ENV === 'production' 
+    ? { rejectUnauthorized: false } 
+    : false,
+};
 
-export default AppDataSource;
+// Instância do DataSource para uso com CLI
+const dataSource = new DataSource(dataSourceOptions);
+
+export default dataSource;
